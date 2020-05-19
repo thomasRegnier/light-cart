@@ -16,7 +16,7 @@ class ProductController extends Controller
     {
         //
         return response()
-            ->json(['error' => Null, 'products' => Product::all()]);
+            ->json(Product::all());
 
     }
 

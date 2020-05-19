@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Cart;
 use Illuminate\Http\Request;
+use App\Product;
+use Validator;
 
 class CartController extends Controller
 {
@@ -16,7 +18,7 @@ class CartController extends Controller
     {
         //
         return response()
-            ->json(['error' => Null, 'cart' => Cart::with('products')->get()]);
+            ->json(Cart::with('product')->get());
     }
 
     /**
@@ -38,8 +40,36 @@ class CartController extends Controller
     public function store(Request $request)
     {
         //
+//        try {
+//            $request->validate([
+//                'product_id' => 'required',
+//            ]);
+//        } catch (\Exception $e) {
+//            return response()->json(['error' => true, 'message' => $e->getMessage()], 422);
+//        }
 
-        $inCart = Cart::where('product_id', $request->id)->first();
+
+        $validation = Validator::make($request->all(), [
+            'product_id' => 'required',
+        ]);
+
+        if ($validation->fails()) {
+            $message = $validation->messages()->toArray();
+
+            return response()
+                ->json(['error' => $message['product_id'][0]], 422 );
+        }
+
+
+
+        $product = Product::find($request->get('product_id'));
+        if (!$product) {
+            return response()
+                ->json(['error' => true,
+                    'message' => 'Unable to find Product with ID '. $request->product_id], 404);
+        }
+
+        $inCart = Cart::where('product_id', $request->product_id)->first();
 
         if ($inCart){
 
@@ -48,16 +78,19 @@ class CartController extends Controller
             $inCart->save();
 
             return response()
-                ->json(['error' => Null]);
+                ->json($inCart->load('product'));
      }
 
         $cart = new Cart;
 
-        $cart->product_id = $request->id;
+        $cart->product_id = $request->product_id;
 
         $cart->quantity = 1;
 
         $cart->save();
+
+        return response()
+            ->json($cart->load('product'));
     }
 
     /**
@@ -100,21 +133,24 @@ class CartController extends Controller
      * @param  \App\Cart  $cart
      * @return \Illuminate\Http\Response
      */
-    public function destroy($id)
+    public function destroy($product_id)
     {
         //
 
-        $cart = Cart::find($id);
+     //   $cart = Cart::find($id);
+
+        $cart = Cart::where('product_id', $product_id)->first();
+
 
         if(!$cart){
             return response()
-                ->json(["error" => "Cet identifiant est inconnu"], 404);
+                ->json(["error" => true, 'message' => "Unable to find Product with ID"], 404);
         }
 
         $cart->delete();
 
         return response()
-            ->json(["error" => Null ]);
+            ->json([], 200);
 
     }
 
@@ -123,6 +159,6 @@ class CartController extends Controller
         Cart::truncate();
 
         return response()
-            ->json(["error" => null], 200);
+            ->json([], 200);
     }
 }
